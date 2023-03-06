@@ -1,6 +1,7 @@
 set(MP_TEST_SOURCES
     dummy.cpp
     Mempool.cpp
+    Config.cpp
     )
 
 set(MP_TESTS mempool_tests)

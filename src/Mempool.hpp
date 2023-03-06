@@ -1,27 +1,13 @@
 #ifndef MEMPOOL_MEMPOOL_HPP
 #define MEMPOOL_MEMPOOL_HPP
 
-#include <cstdint>
-#include <cstdlib>
+#include "Config.hpp"
+
 #include <memory>
 #include <mutex>
-#include <ostream>
 #include <stdexcept>
-#include <vector>
 
 namespace mp {
-
-struct SubPoolDescriptor {
-    int32_t chunk_amount;
-    std::size_t chunk_size;
-
-    friend std::ostream& operator<<(std::ostream& ostream, const SubPoolDescriptor& sub_pool) {
-        ostream << sub_pool.chunk_amount << "x " << sub_pool.chunk_size;
-        return ostream;
-    }
-};
-
-using MempoolConfig = std::vector<SubPoolDescriptor>;
 
 class MempoolExcetption : std::runtime_error {
 public:
@@ -55,10 +41,14 @@ public:
     void* free(void* p) noexcept;
 
 private:
-    MempoolConfig config_;
+    struct Metadata {
+        MempoolConfig config;
+        ChunkSizeToOffsetMap chunk_size_to_offset_map{};
+        std::vector<bool> allocated_chunks{};
+    } metadata_{};
     struct Memory {
         std::size_t alignment;
-        std::size_t size;
+        MempoolSize size{};
         Deleter deleter{std::align_val_t{alignment}};
         std::unique_ptr<std::byte[], Deleter> data{nullptr, deleter};
     } memory_{};
