@@ -1,5 +1,4 @@
 set(MP_TEST_SOURCES
-    dummy.cpp
     Mempool.cpp
     Config.cpp
     )
