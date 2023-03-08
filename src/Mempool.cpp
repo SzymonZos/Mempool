@@ -4,7 +4,6 @@
 #include "log.hpp"
 
 #include <algorithm>
-#include <iostream>
 #include <new>
 #include <numeric>
 
@@ -12,6 +11,21 @@
 #include <fmt/ranges.h>
 
 namespace mp {
+Mempool::~Mempool() {
+    if (memory_.size.chunks == 0) {
+        return;
+    }
+
+    LOG("Amount of unfreed chunks and peak usage within each sub-pool:");
+    for (const auto& [chunk_size, chunk_stats] : metadata_.sub_pool_stats) {
+        auto print = fmt::format("Subpool of size '{}': counter '{}', peak usage '{}'",
+                                 chunk_size,
+                                 chunk_stats.counter,
+                                 chunk_stats.max_usage);
+        LOG(print);
+    }
+}
+
 Mempool::Mempool(MempoolConfig config, std::size_t alignment) :
     metadata_{std::move(config)},
     memory_{alignment} {
@@ -39,6 +53,9 @@ Mempool::Mempool(MempoolConfig config, std::size_t alignment) :
 
     metadata_.chunk_size_to_offset_map = GetChunkSizeToOffsetMap(metadata_.config);
     metadata_.allocated_chunks.resize(static_cast<std::size_t>(size.chunks));
+    for (const auto& sub_pool : metadata_.config) {
+        metadata_.sub_pool_stats[sub_pool.chunk_size] = {};
+    }
 
     memory_.size = size;
     if (memory_.size.bytes > total_limit) {
@@ -57,10 +74,9 @@ void* Mempool::alloc(std::size_t size) noexcept {
     if (size > max_size) {
         return nullptr;
     }
-    auto sub_pool = std::find_if(
-        metadata_.config.cbegin(),
-        metadata_.config.cend(),
-        [size](const auto& sub_pool) { return size <= sub_pool.chunk_size; });
+    auto sub_pool = std::find_if(metadata_.config.cbegin(),
+                                 metadata_.config.cend(),
+                                 [size](const auto& sp) { return size <= sp.chunk_size; });
     auto offset = metadata_.chunk_size_to_offset_map[sub_pool->chunk_size];
 
     std::lock_guard lock(mutex_);
@@ -70,6 +86,10 @@ void* Mempool::alloc(std::size_t size) noexcept {
     if (chunk == sub_pool_end) {
         return nullptr;
     }
+
+    auto& stats = metadata_.sub_pool_stats[sub_pool->chunk_size];
+    stats.counter++;
+    stats.max_usage = std::max(stats.max_usage, stats.counter);
 
     *chunk = true;
     auto chunk_index = static_cast<std::size_t>(std::distance(sub_pool_begin, chunk));
@@ -85,6 +105,7 @@ void* Mempool::free(void* p) noexcept {
     if (static_cast<std::size_t>(chunk_address) % memory_.alignment) {
         return nullptr;
     }
+
     std::lock_guard lock(mutex_);
     for (auto sub_pool = metadata_.config.rbegin(); sub_pool != metadata_.config.rend();
          ++sub_pool) {
@@ -92,6 +113,7 @@ void* Mempool::free(void* p) noexcept {
             offset.address <= chunk_address) {
             auto chunk_index = static_cast<std::size_t>(offset.index) +
                                (chunk_address - offset.address) / sub_pool->chunk_size;
+            metadata_.sub_pool_stats[sub_pool->chunk_size].counter--;
             metadata_.allocated_chunks[chunk_index] = false;
             return p;
         }

@@ -9,8 +9,7 @@
 
 namespace mp {
 
-class MempoolExcetption : std::runtime_error {
-public:
+struct MempoolExcetption : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
@@ -20,6 +19,11 @@ struct Deleter {
     void operator()(std::byte* ptr) const {
         ::operator delete[](ptr, alignment);
     };
+};
+
+struct ChunkStats {
+    std::int32_t counter;
+    std::int32_t max_usage;
 };
 
 class Mempool {
@@ -35,7 +39,7 @@ public:
     Mempool(Mempool&& other) noexcept = delete;
     Mempool& operator=(Mempool&& other) noexcept = delete;
 
-    ~Mempool() = default;
+    ~Mempool();
 
     void* alloc(std::size_t size) noexcept;
     void* free(void* p) noexcept;
@@ -43,8 +47,9 @@ public:
 private:
     struct Metadata {
         MempoolConfig config;
-        ChunkSizeToOffsetMap chunk_size_to_offset_map{};
+        ChunkSizeToOffsetMap chunk_size_to_offset_map{}; // can be a vector
         std::vector<bool> allocated_chunks{};
+        std::unordered_map<std::size_t, ChunkStats> sub_pool_stats{}; // can be a vector
     } metadata_{};
     struct Memory {
         std::size_t alignment;

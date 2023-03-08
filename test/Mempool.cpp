@@ -164,19 +164,19 @@ TEST(MempoolFree, ReturnsNullptrOnNotAlignedAddress) {
 
 TEST(MempoolAllocAndFree, ProperlyKeepsTrackOfAllocatedIndices) {
     MempoolConfig config{{4, 1024}, {4, 512}};
-    //    EXPECT_NO_THROW({
-    std::vector<void*> ptrs;
-    ptrs.reserve(32);
-    Mempool mempool(config, 64);
+    EXPECT_NO_THROW({
+        std::vector<void*> ptrs;
+        ptrs.reserve(32);
+        Mempool mempool(config, 64);
 
-    ptrs.push_back(mempool.alloc(666));
-    ASSERT_NE(ptrs.back(), nullptr);
+        ptrs.push_back(mempool.alloc(666));
+        ASSERT_NE(ptrs.back(), nullptr);
 
-    ptrs.push_back(mempool.alloc(777));
-    ptrs.push_back(mempool.alloc(888));
-    ptrs.push_back(mempool.free(ptrs[1]));
-    ptrs.push_back(mempool.alloc(999));
-    EXPECT_EQ(ptrs.back(), GetSecondToLastElement(ptrs));
-    //    });
+        ptrs.push_back(mempool.alloc(777));
+        ptrs.push_back(mempool.alloc(888));
+        ptrs.push_back(mempool.free(ptrs[1]));
+        ptrs.push_back(mempool.alloc(999));
+        EXPECT_EQ(ptrs.back(), GetSecondToLastElement(ptrs));
+    });
 }
 } // namespace mp::ut
