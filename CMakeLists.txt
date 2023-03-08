@@ -3,14 +3,12 @@ project(mempool)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(mempool main.cpp)
-
 include_directories(include)
 
 add_compile_options(
     -Wall
     -Wextra
-    #    -Werror
+    -Werror
     -Wshadow # Warn if variable overshadows parent context
     -Wnon-virtual-dtor # Warn if class with virtual func has no virtual dtor
     -Wcast-align # Warn for potential performance problem casts
